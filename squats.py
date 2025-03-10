@@ -28,8 +28,8 @@ mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
 
 cap = cv2.VideoCapture(0)
-cap.set(3, 640)  # Reduce frame width
-cap.set(4, 480)  # Reduce frame height
+cap.set(3, 320)  # Reduce frame width
+cap.set(4, 240)  # Reduce frame height
 
 squat_counter = 0
 set_counter = 0
