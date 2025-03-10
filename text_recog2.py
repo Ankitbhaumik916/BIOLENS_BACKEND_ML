@@ -3,20 +3,21 @@ import requests
 import spacy
 import sqlite3
 
-# Load Spacy NLP model
+# Load NLP model
 nlp = spacy.load("en_core_web_sm")
 
 # API Details
 API_URL = "https://api.calorieninjas.com/v1/nutrition"
 API_KEY = "sJA5BDqLJ+VReWp6OtRUKQ==YxdNXHxOjRKreUNH"
 
-# Expanded food list with multi-word items
-FOOD_KEYWORDS = {"apple", "banana", "chicken", "rice", "bread", "milk", "egg", "cheese", "tomato", 
-                 "potato", "salmon", "broccoli", "carrot", "yogurt", "almond", "pasta", "coffee",
-                 "omelet", "sandwich", "pizza", "burger", "cereal", "pancake", "fried rice", 
-                 "grilled chicken", "chocolate milk", "chicken tikka", "butter chicken", "dal makhani"}
+# Unit conversion for standardization
+UNIT_CONVERSIONS = {
+    "kg": 1000, "g": 1, "grams": 1, "kilograms": 1000,
+    "ml": 1, "l": 1000, "liters": 1000, "milliliters": 1
+}
 
-# Database setup
+NEGATION_WORDS = {"no", "not", "never", "didn't", "don't", "did not", "do not"}
+
 def setup_database():
     conn = sqlite3.connect("food_tracking.db")
     cursor = conn.cursor()
@@ -24,7 +25,7 @@ def setup_database():
         CREATE TABLE IF NOT EXISTS FoodLog (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             food TEXT,
-            quantity INTEGER,
+            quantity REAL,
             calories REAL,
             protein REAL,
             fat REAL,
@@ -45,37 +46,55 @@ def save_to_database(food, quantity, nutrition_data):
     conn.commit()
     conn.close()
 
-def extract_food_items(text):
-    """Extract food items (including multi-word foods) using NLP"""
-    doc = nlp(text.lower())
-    food_items = {}
-
-    words = [token.text for token in doc]  # Tokenize sentence
-    i = 0
-    while i < len(words):
-        found = False
-        for length in range(3, 0, -1):  # Try extracting 3-word, 2-word, then 1-word foods
-            phrase = " ".join(words[i:i + length])
-            if phrase in FOOD_KEYWORDS:
-                food_items[phrase] = 1  # Default quantity is 1 if no number is mentioned
-                i += length
-                found = True
-                break
-        if not found:
-            i += 1
-
-    return food_items
-
 def get_nutrition(food, quantity):
-    """Query CalorieNinjas API for nutrition data"""
+    """Query API for valid food names & nutrition data"""
     headers = {"X-Api-Key": API_KEY}
-    response = requests.get(API_URL, headers=headers, params={"query": f"{quantity} {food}"})
-    
+    response = requests.get(API_URL, headers=headers, params={"query": food})
+
     if response.status_code == 200 and response.json()["items"]:
         return response.json()["items"][0]
     else:
-        print(f"Error: {response.status_code} - {response.text}")
         return None
+
+def extract_food_items(text):
+    """Extract words from text, check API, and fetch quantities"""
+    doc = nlp(text.lower())
+    tokens = [token.text for token in doc]
+
+    possible_foods = {token.text for token in doc if token.pos_ in {"NOUN", "PROPN"}}
+
+    # Identify negated words
+    negated_foods = set()
+    for i, token in enumerate(tokens):
+        if token in possible_foods and i > 0:
+            prev_word = tokens[i - 1]
+            prev_bigram = " ".join(tokens[i - 2:i]) if i >= 2 else ""
+            
+            if prev_word in NEGATION_WORDS or prev_bigram in NEGATION_WORDS:
+                negated_foods.add(token)
+
+    # Filter out negated foods
+    valid_foods = {}
+    for word in possible_foods - negated_foods:
+        nutrition_data = get_nutrition(word, 100)
+        if nutrition_data:
+            valid_foods[word] = 1  # Default quantity 1
+
+    # Detect quantities
+    for i, token in enumerate(tokens):
+        if token in valid_foods:
+            quantity = 1
+            if i > 0:
+                match = re.match(r"(\d+(\.\d+)?)\s*(kg|g|grams|kilograms|ml|l|liters|milliliters)?", tokens[i - 1])
+                if match:
+                    num = float(match.group(1))
+                    unit = match.group(3)
+                    if unit and unit in UNIT_CONVERSIONS:
+                        num *= UNIT_CONVERSIONS[unit]
+                    quantity = num
+            valid_foods[token] = quantity
+
+    return valid_foods
 
 # Setup database
 setup_database()
@@ -83,7 +102,7 @@ setup_database()
 # Get user input
 text_input = input("Enter a paragraph containing food items: ")
 
-# Extract food items with quantities
+# Extract food items dynamically
 food_dict = extract_food_items(text_input)
 
 if food_dict:
@@ -92,11 +111,11 @@ if food_dict:
     for food, quantity in food_dict.items():
         nutrition_data = get_nutrition(food, quantity)
         if nutrition_data:
-            print(f"\nNutrition for {quantity} {food}:")
+            print(f"\nNutrition for {quantity}g of {food}:")
             print(f"Calories: {nutrition_data['calories']} kcal, Protein: {nutrition_data['protein_g']}g, "
                   f"Fat: {nutrition_data['fat_total_g']}g, Carbs: {nutrition_data['carbohydrates_total_g']}g")
 
             # Save to database
             save_to_database(food, quantity, nutrition_data)
 else:
-    print("No food items detected.")
+    print("No valid food items detected.")
