@@ -37,7 +37,7 @@ stage = None  # 'down' or 'up'
 total_reps_per_set = 10
 calories_burned = 0.0
 
-speak_flag = {"lower_hips": False, "lock_knees": False}
+speak_flag = {"lower_hips": False, "lock_knees": False, "squat_down": False, "squat_up": False}
 
 time_series = []
 angle_series = []
@@ -75,12 +75,18 @@ with mp_pose.Pose(min_detection_confidence=0.7, min_tracking_confidence=0.7) as 
             # Squat logic
             if angle < 90 and stage != "down":  # Down position
                 stage = "down"
-                speak("Squat down")
+                if not speak_flag["squat_down"]:
+                    speak("Squat down")
+                    speak_flag["squat_down"] = True
+                    speak_flag["squat_up"] = False
             if angle > 160 and stage == "down":  # Up position
                 stage = "up"
                 squat_counter += 1
                 calories_burned += 0.32  # Approximate calories per squat
-                speak(f"Squat count {squat_counter}")
+                if not speak_flag["squat_up"]:
+                    speak(f"Squat count {squat_counter}")
+                    speak_flag["squat_up"] = True
+                    speak_flag["squat_down"] = False
                 if squat_counter % total_reps_per_set == 0:
                     set_counter += 1
                     speak(f"Set {set_counter} completed")
