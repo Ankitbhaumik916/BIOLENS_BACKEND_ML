@@ -6,6 +6,9 @@ import numpy as np
 mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
 
+# Get dumbbell weight from user
+dumbbell_weight = float(input("Enter the weight of the dumbbell (kg): "))
+
 # Video capture
 cap = cv2.VideoCapture(0)
 
@@ -70,11 +73,17 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
                 right_reps += 1
                 right_curling = False  # Reset for next curl
 
-            # Display rep count
+            # Calories burned calculation
+            calories_per_rep = 0.03 * dumbbell_weight
+            total_calories = (left_reps + right_reps) * calories_per_rep
+
+            # Display rep count and calories burned
             cv2.putText(frame, f'Left Reps: {left_reps}', (50, 50),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
             cv2.putText(frame, f'Right Reps: {right_reps}', (50, 100),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+            cv2.putText(frame, f'Calories Burned: {total_calories:.2f}', (50, 150),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
 
             # Draw pose landmarks
             mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
