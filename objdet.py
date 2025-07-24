@@ -30,14 +30,14 @@ def detect_food(image_path):
 
         # Process the response
         if response.status.code == status_code_pb2.SUCCESS:
-            print("\n🍔 Food Items Detected:")
+            print("\ Food Items Detected:")
             for concept in response.outputs[0].data.concepts:
                 print(f"{concept.name} ({concept.value * 100:.2f}%)")
         else:
-            print("❌ Error:", response.status.description)
+            print(" Error:", response.status.description)
     except FileNotFoundError:
-        print("⚠️ Error: The file was not found. Please check the image path.")
+        print("Error: The file was not found. Please check the image path.")
 
 # Get image path from the user
-image_path = input("📷 Enter the image path: ").strip()
+image_path = input(" Enter the image path: ").strip()
 detect_food(image_path)

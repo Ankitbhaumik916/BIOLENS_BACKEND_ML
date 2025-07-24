@@ -1,5 +1,5 @@
 import requests
-import mysql.connector
+import mysql.connector as myp
 
 # CalorieNinjas API endpoint and API key
 url = "https://api.calorieninjas.com/v1/nutrition"
@@ -39,7 +39,7 @@ if response.status_code == 200:
         food_item = data["items"][0]
 
         # Connect to the MySQL database
-        conn = mysql.connector.connect(**db_config)
+        conn = myp.connect(**db_config)
         cursor = conn.cursor()
 
         # Insert the data into the nutrition_info table
